@@ -796,8 +796,16 @@ async function offSearch(){
   const list=$("#foodList");
   if(list)list.innerHTML='<div class="muted" style="padding:14px 0">🌐 Suche online in Open Food Facts…</div>';
   try{
-    const r=await fetch("https://de.openfoodfacts.org/cgi/search.pl?search_terms="+encodeURIComponent(q)+"&search_simple=1&action=process&json=1&page_size=15&fields=product_name,product_name_de,brands,nutriments,serving_quantity,code");
-    const d=await r.json();
+    const qs="?search_terms="+encodeURIComponent(q)+"&search_simple=1&action=process&json=1&page_size=15&fields=product_name,product_name_de,brands,nutriments,serving_quantity,code";
+    let d=null;
+    for(const host of ["world.openfoodfacts.org","de.openfoodfacts.org"]){
+      try{
+        const r=await fetch("https://"+host+"/cgi/search.pl"+qs);
+        if(!r.ok)continue;
+        d=await r.json();break;
+      }catch(e){}
+    }
+    if(!d)throw new Error("Server nicht erreichbar");
     const ps=(d.products||[]).filter(p=>p.nutriments&&p.nutriments["energy-kcal_100g"]!=null);
     if(!ps.length){list.innerHTML='<div class="muted" style="padding:14px 0">Online nichts Passendes gefunden. Lege es als eigenes Lebensmittel an.</div>';return;}
     modal.offResults=ps;
