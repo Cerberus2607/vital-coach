@@ -593,7 +593,7 @@ function delEntry(meal,i){getDayRec(viewKey).meals[meal].splice(i,1);save();rend
 /* ================= Essen-Modal ================= */
 function allFoods(){return FOODS.concat(state.customFoods);}
 function openModal(meal){modal={open:true,meal,query:"",cat:null,mode:"list",selIdx:null};$("#overlay").classList.remove("hidden");renderModal();}
-function closeModal(){modal.open=false;$("#overlay").classList.add("hidden");}
+function closeModal(){stopScan();modal.open=false;$("#overlay").classList.add("hidden");}
 function renderModal(){
   const mb=$("#modalBody");
   const mealLabel=MEALS.find(m=>m[0]===modal.meal)[1];
@@ -613,6 +613,20 @@ function renderModal(){
         <button class="btn" onclick="saveCustom()">Speichern</button>
         <button class="btn sec" onclick="modal.mode='list';renderModal()">Abbrechen</button>
       </div>`;
+    return;
+  }
+  if(modal.mode==="scan"){
+    mb.innerHTML=`
+      <b>📷 Barcode scannen</b>
+      <video id="scanVideo" muted playsinline style="width:100%;max-height:280px;border-radius:12px;background:#000;margin-top:10px"></video>
+      <div class="muted" id="scanStatus" style="margin:6px 0">Kamera wird gestartet…</div>
+      <label class="fl">Oder Barcode-Nummer eintippen</label>
+      <div class="row">
+        <input id="manualCode" inputmode="numeric" placeholder="z. B. 7300400481588" style="flex:1;width:auto">
+        <button class="btn small" onclick="lookupBarcode(document.getElementById('manualCode').value.trim())">Suchen</button>
+      </div>
+      <button class="btn sec small" style="margin-top:12px" onclick="stopScan();modal.mode='list';renderModal()">Zurück</button>`;
+    startCamera();
     return;
   }
   if(modal.mode==="detail"){
@@ -655,6 +669,10 @@ function renderModal(){
   mb.innerHTML=`
     <input id="foodSearch" placeholder="🔍 Lebensmittel suchen…" value="${esc(modal.query)}"
       oninput="modal.query=this.value;modal.cat=null;renderFoodList()">
+    <div class="row" style="margin-top:8px">
+      <button class="btn small sec" onclick="stopScan();modal.mode='scan';renderModal()">📷 Barcode scannen</button>
+      <button class="btn small sec" onclick="offSearch()">🌐 Online suchen</button>
+    </div>
     <div class="chips" id="catChips">
       <span class="chip ${modal.cat==null&&!q?"active":""}" onclick="modal.cat=null;modal.query='';renderModal()">⭐ Favoriten</span>
       ${CATS.map((c,i)=>`<span class="chip ${modal.cat===i?"active":""}" onclick="modal.cat=${i};modal.query='';renderModal()">${c}</span>`).join("")}
@@ -678,7 +696,8 @@ function renderFoodListInner(idxs){
     return `<div class="food-item" onclick="modal.selIdx=${i};modal.mode='detail';modal.grams=null;renderModal()">
       <span>${esc(f.n)}<div class="fi-sub">${f.k} kcal · ${f.p} g Protein je 100 g${f.pn?" · "+esc(f.pn)+" = "+f.pg+" g":""}</div></span>
       <span style="font-size:18px;color:var(--accent)">＋</span></div>`;
-  }).join(""):`<div class="muted" style="padding:14px 0">Nichts gefunden. Lege es als eigenes Lebensmittel an.</div>`;
+  }).join(""):`<div class="muted" style="padding:14px 0">Lokal nichts gefunden.</div>
+    <button class="btn small" onclick="offSearch()">🌐 Online suchen (Open Food Facts)</button>`;
 }
 function setGrams(g){modal.grams=g;$("#gramIn").value=g;updatePreview();}
 function updatePreview(){
@@ -710,6 +729,103 @@ function saveCustom(){
   state.customFoods.push({n,k,p,f,c,cat:6,pn:pn||undefined,pg:pg||undefined});
   save();
   modal.mode="list";modal.query=n;renderModal();
+}
+
+/* ============ Barcode-Scanner & Open Food Facts ============ */
+let scanStream=null,scanLoop=null,zxReader=null;
+function loadZXing(){
+  return new Promise((ok,fail)=>{
+    if(window.ZXing)return ok();
+    const s=document.createElement("script");
+    s.src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload=()=>ok();s.onerror=()=>fail(new Error("Scanner-Bibliothek nicht ladbar (offline?)"));
+    document.head.appendChild(s);
+  });
+}
+async function startCamera(){
+  const v=$("#scanVideo"),st=$("#scanStatus");
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    st.textContent="Keine Kamera verfügbar — tippe die Barcode-Nummer unten ein.";return;
+  }
+  try{
+    if("BarcodeDetector" in window){
+      const det=new BarcodeDetector({formats:["ean_13","ean_8","upc_a","upc_e","code_128"]});
+      scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+      v.srcObject=scanStream;await v.play();
+      st.textContent="Halte den Barcode ruhig vor die Kamera…";
+      scanLoop=setInterval(async()=>{
+        try{
+          const codes=await det.detect(v);
+          if(codes.length){const c=codes[0].rawValue;stopScan();lookupBarcode(c);}
+        }catch(e){}
+      },400);
+    }else{
+      st.textContent="Scanner wird geladen…";
+      await loadZXing();
+      zxReader=new ZXing.BrowserMultiFormatReader();
+      st.textContent="Halte den Barcode ruhig vor die Kamera…";
+      zxReader.decodeFromVideoDevice(null,"scanVideo",(res,err)=>{
+        if(res){const c=res.getText();stopScan();lookupBarcode(c);}
+      });
+    }
+  }catch(e){
+    st.textContent="Kamera nicht nutzbar ("+e.name+"). Erlaube den Kamerazugriff oder tippe die Nummer unten ein.";
+  }
+}
+function stopScan(){
+  if(scanLoop){clearInterval(scanLoop);scanLoop=null;}
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}
+  if(zxReader){try{zxReader.reset();}catch(e){}zxReader=null;}
+}
+async function lookupBarcode(code){
+  if(!code)return;
+  const st=$("#scanStatus");if(st)st.textContent="Suche Produkt "+code+"…";
+  try{
+    const r=await fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_de,brands,nutriments,serving_quantity");
+    const d=await r.json();
+    if(d.status!==1||!d.product)throw new Error("Produkt nicht in der Datenbank");
+    addOffProduct(d.product);
+  }catch(e){
+    if(st)st.textContent="❌ "+e.message+". Nochmal versuchen oder Nummer eintippen.";
+    else alert("Produkt nicht gefunden: "+e.message);
+  }
+}
+async function offSearch(){
+  const q=(modal.query||"").trim();
+  if(!q){alert("Gib erst einen Suchbegriff ein, z. B. „Wasa Knäckebrot“.");return;}
+  const list=$("#foodList");
+  if(list)list.innerHTML='<div class="muted" style="padding:14px 0">🌐 Suche online in Open Food Facts…</div>';
+  try{
+    const r=await fetch("https://de.openfoodfacts.org/cgi/search.pl?search_terms="+encodeURIComponent(q)+"&search_simple=1&action=process&json=1&page_size=15&fields=product_name,product_name_de,brands,nutriments,serving_quantity,code");
+    const d=await r.json();
+    const ps=(d.products||[]).filter(p=>p.nutriments&&p.nutriments["energy-kcal_100g"]!=null);
+    if(!ps.length){list.innerHTML='<div class="muted" style="padding:14px 0">Online nichts Passendes gefunden. Lege es als eigenes Lebensmittel an.</div>';return;}
+    modal.offResults=ps;
+    list.innerHTML=ps.map((p,i)=>{
+      const name=(p.product_name_de||p.product_name||"?")+(p.brands?" · "+p.brands.split(",")[0]:"");
+      return `<div class="food-item" onclick="pickOff(${i})">
+        <span>${esc(name)}<div class="fi-sub">${Math.round(p.nutriments["energy-kcal_100g"])} kcal · ${(+p.nutriments.proteins_100g||0).toFixed(1)} g Protein je 100 g · 🌐 Open Food Facts</div></span>
+        <span style="font-size:18px;color:var(--accent)">＋</span></div>`;
+    }).join("");
+  }catch(e){
+    if(list)list.innerHTML='<div class="muted" style="padding:14px 0">Online-Suche fehlgeschlagen — bist du offline?</div>';
+  }
+}
+function pickOff(i){addOffProduct(modal.offResults[i]);}
+function addOffProduct(p){
+  const nut=p.nutriments||{};
+  const kcal=Math.round(+nut["energy-kcal_100g"]||0);
+  if(!kcal){alert("Für dieses Produkt sind keine Kalorienangaben hinterlegt.");return;}
+  const name=((p.product_name_de||p.product_name||"Produkt")+(p.brands?" ("+p.brands.split(",")[0].trim()+")":"")).slice(0,70);
+  let f=state.customFoods.find(x=>x.n===name);
+  if(!f){
+    f={n:name,k:kcal,p:+(+nut.proteins_100g||0).toFixed(1),f:+(+nut.fat_100g||0).toFixed(1),c:+(+nut.carbohydrates_100g||0).toFixed(1),cat:6};
+    const sq=parseFloat(p.serving_quantity);
+    if(sq>0){f.pn="Portion";f.pg=Math.round(sq);}
+    state.customFoods.push(f);save();
+  }
+  modal.selIdx=allFoods().findIndex(x=>x.n===name);
+  modal.mode="detail";modal.grams=null;renderModal();
 }
 
 /* ================= Körper ================= */
