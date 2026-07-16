@@ -152,6 +152,11 @@ table.wk th:first-child,table.wk td:first-child{text-align:left;}
 .bad{color:var(--danger);}
 .water-btns button{font-size:.85rem;}
 .disclaimer{font-size:.72rem;color:var(--muted);line-height:1.5;}
+.avatar-img{width:24px;height:24px;border-radius:50%;object-fit:cover;display:block;}
+.avatar-big{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);}
+.avatar-ph{width:64px;height:64px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;border:2px dashed var(--border);}
+.moti{cursor:pointer;background:linear-gradient(135deg,var(--accent-soft),var(--blue-soft));}
+.moti .q{font-style:italic;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -160,6 +165,7 @@ table.wk th:first-child,table.wk td:first-child{text-align:left;}
   <div class="row">
     <span id="streakBadge" class="streak hidden">🔥 <span id="streakNum">0</span></span>
     <button class="icon-btn" id="themeBtn" onclick="cycleTheme()" title="Hell/Dunkel">🌗</button>
+    <button class="icon-btn" id="avatarBtn" onclick="showTab('profil')" title="Profil" style="padding:5px 7px">👤</button>
   </div>
 </header>
 <div class="wrap">
@@ -318,6 +324,33 @@ const FOODS = [
 {n:"Rotwein",k:85,p:0.2,f:0,c:2.6,cat:7,pn:"Glas",pg:200,alc:1},
 {n:"Weißwein",k:82,p:0.1,f:0,c:2.4,cat:7,pn:"Glas",pg:200,alc:1}
 ];
+/* Tägliche Motivation — antippen wechselt den Spruch */
+const MOTIVATIONS = [
+"Disziplin heißt: sich an die Entscheidung erinnern, die du getroffen hast, als die Motivation noch da war.",
+"Du musst nicht perfekt sein. Nur öfter gut als schlecht.",
+"Jede getrackte Mahlzeit ist ein kleiner Sieg über den Autopiloten.",
+"Der Weg von 96 auf 87 kg war real. Der Rest ist nur Wiederholung.",
+"Fortschritt ist leise. Er zeigt sich nicht jeden Tag auf der Waage, aber jede Woche im Trend.",
+"Ein schlechter Tag ist ein Datenpunkt, keine Niederlage.",
+"Du baust gerade den Körper, in dem du die nächsten 40 Jahre wohnst.",
+"Konsequenz schlägt Intensität. Immer.",
+"Heute zählt nur heute: eine gute Mahlzeit, ein Glas Wasser, ein Spaziergang.",
+"Muskeln sind deine Rente. Jedes Gramm Protein zahlt ein.",
+"Nicht der Appetit entscheidet, sondern dein Plan.",
+"Wer misst, verändert. Wer schätzt, vergisst.",
+"Kleine Portionen, große Wirkung — du musst nicht hungern, nur wählen.",
+"Der beste Zeitpunkt war gestern. Der zweitbeste ist jetzt gleich.",
+"Dein zukünftiges Ich schaut gerade zu. Mach es stolz.",
+"82 kg ist kein Wunschtraum, sondern ein Termin.",
+"Bewegung ist keine Strafe fürs Essen, sondern ein Geschenk an deinen Körper.",
+"Schlaf ist Training im Liegen — nimm ihn ernst.",
+"Es geht nicht um Verzicht, sondern um Vorfahrt für das Wichtige.",
+"Ein Jahr besteht aus 365 Chancen.",
+"Was du heute wiegst, hast du vor Wochen entschieden. Was du heute isst, entscheidet die nächsten.",
+"Stark ist das neue Schlank — halte dein Protein hoch.",
+"Auch der langsamste Fortschritt überholt jeden, der aufgibt.",
+"Du trackst nicht für die App. Du trackst für den Mann im Spiegel."
+];
 /* Altersgerechte Coach-Tipps (49 J., Abnehmen unter Mounjaro, MTX) */
 const AGE_TIPS = [
 "Ab Ende 40 verliert der Körper schneller Muskelmasse. 2× pro Woche Krafttraining (auch kurz, 20–30 Min.) schützt Muskeln und Gelenke beim Abnehmen.",
@@ -362,6 +395,7 @@ let state=load()||defaultState();
 let viewKey=todayKey();
 let currentTab="heute";
 let modal={open:false,meal:"f",query:"",cat:null,mode:"list",selIdx:null};
+let motiShift=0;
 
 /* ================= Berechnungen ================= */
 function age(){
@@ -503,9 +537,17 @@ function coachTips(){
     const avg=sl.reduce((a,b)=>a+b,0)/sl.length;
     if(avg<6.5)push("warn","😴",`Ø nur ${avg.toFixed(1).replace(".",",")} Std. Schlaf in den letzten Tagen. Unter 6,5 Std. steigt das Hungerhormon Ghrelin — Schlaf ist Teil deines Abnehmplans.`);
   }
+  // Meilensteine
+  const lost=state.profile.startWeight-latestWeight();
+  const total=state.profile.startWeight-state.profile.targetWeight;
+  if(total>0&&lost>0.3){
+    const pct=Math.min(100,Math.round(lost/total*100));
+    if(pct>=25)push("good","🏆",`${pct} % deines Wegs geschafft: ${lost.toFixed(1).replace(".",",")} von ${total.toFixed(1).replace(".",",")} kg sind weg. Das hast DU gemacht.`);
+  }
   // Streak
   const st=streak();
-  if(st>=3)push("good","🔥",`${st} Tage in Folge getrackt — Dranbleiben schlägt Perfektion.`);
+  if([7,14,21,30,50,75,100].includes(st))push("good","🎉",`${st} Tage am Stück getrackt — das ist keine Phase mehr, das ist eine Gewohnheit. Stark!`);
+  else if(st>=3)push("good","🔥",`${st} Tage in Folge getrackt — Dranbleiben schlägt Perfektion.`);
   // Tages-Tipp (rotierend, altersgerecht)
   const doy=Math.floor((new Date()-new Date(new Date().getFullYear(),0,0))/86400000);
   push("info","🧠","Tipp des Tages: "+AGE_TIPS[doy%AGE_TIPS.length]);
@@ -530,7 +572,15 @@ function renderHeute(){
   const pct=Math.min(100,t.k/tg.kcal*100);
   const over=t.k>tg.kcal;
   const rest=tg.kcal-t.k;
+  const hour=new Date().getHours();
+  const greet=hour<11?"Guten Morgen":hour<18?"Hallo":"Guten Abend";
+  const doy=Math.floor((new Date()-new Date(new Date().getFullYear(),0,0))/86400000);
+  const moti=MOTIVATIONS[(doy+motiShift)%MOTIVATIONS.length];
   let html=`
+  <div class="card moti" onclick="motiShift++;renderHeute()" title="Antippen für den nächsten Spruch">
+    <div class="muted">${greet}${state.profile.name?", <b>"+esc(state.profile.name)+"</b>":""} 👋</div>
+    <div class="q" style="margin-top:6px">„${moti}“</div>
+  </div>
   <div class="date-nav">
     <button class="icon-btn" onclick="navDay(-1)">‹</button>
     <b>${isToday?"Heute":fmtLong(viewKey)}${isToday?" · "+fmtLong(viewKey).split(",")[0]:""}</b>
@@ -1014,6 +1064,20 @@ function setP(k,v){state.profile[k]=v;save();renderAll();}
 function renderProfil(){
   const p=state.profile,tg=targets();
   $("#page-profil").innerHTML=`
+  <div class="card"><h3>🪪 Dein Profil</h3>
+    <div class="row" style="align-items:flex-start">
+      ${p.photo?`<img class="avatar-big" src="${p.photo}">`:`<div class="avatar-ph">👤</div>`}
+      <div style="flex:1;min-width:180px">
+        <label class="fl">Name</label>
+        <input value="${esc(p.name||"")}" placeholder="Dein Name" onchange="setP('name',this.value)">
+        <div class="row" style="margin-top:10px">
+          <label class="btn sec small" style="display:inline-block;cursor:pointer">📷 Foto wählen<input type="file" accept="image/*" class="hidden" onchange="setPhoto(this)"></label>
+          ${p.photo?`<button class="btn danger small" onclick="setP('photo',null)">Entfernen</button>`:""}
+        </div>
+        <div class="muted" style="margin-top:6px">Das Foto bleibt nur auf diesem Gerät gespeichert.</div>
+      </div>
+    </div>
+  </div>
   <div class="card"><h3>👤 Persönliche Daten</h3>
     <div class="grid2">
       <div><label class="fl">Geburtsdatum</label><input type="date" value="${p.birth}" onchange="setP('birth',this.value)"></div>
@@ -1066,6 +1130,26 @@ function renderProfil(){
     <div class="disclaimer">⚕️ Hinweis: Dieses Tool ersetzt keine ärztliche Beratung. Kalorien- und Nährwertangaben sind Richtwerte. Besprich Ernährungs- und Medikamentenfragen (MTX, Mounjaro) mit deinem Arzt — insbesondere bei Dosisänderungen, Nebenwirkungen oder schnellem Gewichtsverlust.</div>
   </div>`;
 }
+function setPhoto(inp){
+  const file=inp.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const S=200,cv=document.createElement("canvas");
+      cv.width=S;cv.height=S;
+      const ctx=cv.getContext("2d");
+      const m=Math.min(img.width,img.height);
+      ctx.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,S,S);
+      try{state.profile.photo=cv.toDataURL("image/jpeg",0.85);}
+      catch(e){alert("Foto konnte nicht verarbeitet werden.");return;}
+      save();renderAll();
+    };
+    img.onerror=()=>alert("Das Bild konnte nicht gelesen werden.");
+    img.src=r.result;
+  };
+  r.readAsDataURL(file);
+}
 function exportData(){
   const blob=new Blob([JSON.stringify(state,null,1)],{type:"application/json"});
   const a=document.createElement("a");
@@ -1098,6 +1182,8 @@ function renderAll(){
   else renderProfil();
   $("#streakNum").textContent=streak();
   $("#streakBadge").classList.toggle("hidden",streak()<1);
+  const ab=$("#avatarBtn");
+  if(ab)ab.innerHTML=state.profile.photo?`<img class="avatar-img" src="${state.profile.photo}">`:"👤";
 }
 applyTheme();
 renderAll();
