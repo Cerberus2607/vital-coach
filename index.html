@@ -562,7 +562,7 @@ function renderHeute(){
       <button class="btn small sec" onclick="openModal('${id}')">+</button></span></div>`;
     for(let i=0;i<es.length;i++){
       const e=es[i];
-      html+=`<div class="entry"><span>${esc(e.n)} <span class="muted">${e.g} g</span></span>
+      html+=`<div class="entry"><span>${esc(e.n)} <span class="muted">${e.g?e.g+" g":""}</span></span>
         <span class="row"><span>${Math.round(e.k)} kcal · ${e.p.toFixed(0)} g P</span>
         <button class="del" onclick="delEntry('${id}',${i})">✕</button></span></div>`;
     }
@@ -613,6 +613,24 @@ function renderModal(){
         <button class="btn" onclick="saveCustom()">Speichern</button>
         <button class="btn sec" onclick="modal.mode='list';renderModal()">Abbrechen</button>
       </div>`;
+    return;
+  }
+  if(modal.mode==="quick"){
+    mb.innerHTML=`
+      <b>⚡ Schnelleintrag</b>
+      <div class="muted">Für Gerichte, die du nur schätzen kannst — trägt die Werte direkt ein, ohne 100-g-Basis.</div>
+      <label class="fl">Bezeichnung</label><input id="q-n" placeholder="z. B. Restaurantessen, Geburtstagskuchen">
+      <label class="fl">Kalorien (kcal) *</label><input id="q-k" type="number" min="0" inputmode="numeric" placeholder="z. B. 650">
+      <div class="grid3">
+        <div><label class="fl">Protein g</label><input id="q-p" type="number" min="0" step="0.5" placeholder="optional"></div>
+        <div><label class="fl">Fett g</label><input id="q-f" type="number" min="0" step="0.5" placeholder="optional"></div>
+        <div><label class="fl">KH g</label><input id="q-c" type="number" min="0" step="0.5" placeholder="optional"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="saveQuick()">Eintragen</button>
+        <button class="btn sec" onclick="modal.mode='list';renderModal()">Abbrechen</button>
+      </div>`;
+    $("#q-k").focus();
     return;
   }
   if(modal.mode==="scan"){
@@ -672,6 +690,7 @@ function renderModal(){
     <div class="row" style="margin-top:8px">
       <button class="btn small sec" onclick="stopScan();modal.mode='scan';renderModal()">📷 Barcode scannen</button>
       <button class="btn small sec" onclick="offSearch()">🌐 Online suchen</button>
+      <button class="btn small sec" onclick="modal.mode='quick';renderModal()">⚡ Schnelleintrag</button>
     </div>
     <div class="chips" id="catChips">
       <span class="chip ${modal.cat==null&&!q?"active":""}" onclick="modal.cat=null;modal.query='';renderModal()">⭐ Favoriten</span>
@@ -718,6 +737,19 @@ function confirmAdd(){
   });
   state.favs[f.n]=(state.favs[f.n]||0)+1;
   state.recent=[f.n,...state.recent.filter(n=>n!==f.n)].slice(0,12);
+  save();closeModal();renderHeute();
+}
+function saveQuick(){
+  const k=parseFloat($("#q-k").value);
+  if(isNaN(k)||k<0){alert("Bitte mindestens die Kalorien angeben.");return;}
+  const n=$("#q-n").value.trim()||"Schnelleintrag";
+  getDayRec(viewKey).meals[modal.meal].push({
+    n:n,g:0,k:k,
+    p:parseFloat($("#q-p").value)||0,
+    f:parseFloat($("#q-f").value)||0,
+    c:parseFloat($("#q-c").value)||0,
+    alc:0
+  });
   save();closeModal();renderHeute();
 }
 function saveCustom(){
