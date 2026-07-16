@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#10b981">
+<meta name="robots" content="noindex,nofollow">
 <title>Vital-Coach</title>
 <style>
 :root{
@@ -157,6 +158,15 @@ table.wk th:first-child,table.wk td:first-child{text-align:left;}
 .avatar-ph{width:64px;height:64px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;border:2px dashed var(--border);}
 .moti{cursor:pointer;background:linear-gradient(135deg,var(--accent-soft),var(--blue-soft));}
 .moti .q{font-style:italic;line-height:1.5;}
+.ring-bg{fill:none;stroke:var(--border);stroke-width:10;}
+.ring-fg{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .5s;}
+.ring-fg.over{stroke:var(--danger);}
+.ring-num{font-size:27px;font-weight:700;fill:var(--text);text-anchor:middle;font-family:inherit;}
+.ring-sub{font-size:10.5px;fill:var(--muted);text-anchor:middle;font-family:inherit;}
+.setup{position:fixed;inset:0;z-index:100;background:var(--bg);overflow-y:auto;}
+.setup .inner{max-width:440px;margin:0 auto;padding:30px 18px 40px;}
+.btn,.icon-btn,.chip,.food-item{transition:transform .08s,opacity .15s,background .15s;}
+.btn:active,.icon-btn:active{transform:scale(.96);}
 </style>
 </head>
 <body>
@@ -180,6 +190,7 @@ table.wk th:first-child,table.wk td:first-child{text-align:left;}
   <button id="tab-coach" onclick="showTab('coach')"><span class="ni">🧠</span>Coach</button>
   <button id="tab-profil" onclick="showTab('profil')"><span class="ni">⚙️</span>Profil</button>
 </nav>
+<div id="setup" class="setup hidden"><div class="inner" id="setupBody"></div></div>
 <div id="overlay" class="overlay hidden" onclick="if(event.target===this)closeModal()">
   <div class="sheet">
     <div class="sheet-head"><b id="modalTitle">Essen hinzufügen</b>
@@ -329,7 +340,7 @@ const MOTIVATIONS = [
 "Disziplin heißt: sich an die Entscheidung erinnern, die du getroffen hast, als die Motivation noch da war.",
 "Du musst nicht perfekt sein. Nur öfter gut als schlecht.",
 "Jede getrackte Mahlzeit ist ein kleiner Sieg über den Autopiloten.",
-"Der Weg von 96 auf 87 kg war real. Der Rest ist nur Wiederholung.",
+"Der Weg, den du schon hinter dir hast, ist der Beweis, dass du es kannst.",
 "Fortschritt ist leise. Er zeigt sich nicht jeden Tag auf der Waage, aber jede Woche im Trend.",
 "Ein schlechter Tag ist ein Datenpunkt, keine Niederlage.",
 "Du baust gerade den Körper, in dem du die nächsten 40 Jahre wohnst.",
@@ -341,7 +352,7 @@ const MOTIVATIONS = [
 "Kleine Portionen, große Wirkung — du musst nicht hungern, nur wählen.",
 "Der beste Zeitpunkt war gestern. Der zweitbeste ist jetzt gleich.",
 "Dein zukünftiges Ich schaut gerade zu. Mach es stolz.",
-"82 kg ist kein Wunschtraum, sondern ein Termin.",
+"Dein Zielgewicht ist kein Wunschtraum, sondern ein Termin.",
 "Bewegung ist keine Strafe fürs Essen, sondern ein Geschenk an deinen Körper.",
 "Schlaf ist Training im Liegen — nimm ihn ernst.",
 "Es geht nicht um Verzicht, sondern um Vorfahrt für das Wichtige.",
@@ -351,20 +362,20 @@ const MOTIVATIONS = [
 "Auch der langsamste Fortschritt überholt jeden, der aufgibt.",
 "Du trackst nicht für die App. Du trackst für den Mann im Spiegel."
 ];
-/* Altersgerechte Coach-Tipps (49 J., Abnehmen unter Mounjaro, MTX) */
+/* Coach-Tipps (rotierend, allgemeingültig) */
 const AGE_TIPS = [
-"Ab Ende 40 verliert der Körper schneller Muskelmasse. 2× pro Woche Krafttraining (auch kurz, 20–30 Min.) schützt Muskeln und Gelenke beim Abnehmen.",
+"Ab 40 verliert der Körper ohne Training jedes Jahr Muskelmasse. 2× pro Woche Krafttraining (auch kurz, 20–30 Min.) wirkt dem entgegen.",
 "Verteile dein Protein auf alle Mahlzeiten — ca. 30 g pro Mahlzeit werden vom Körper am besten für den Muskelerhalt genutzt.",
-"Unter Mounjaro ist der Appetit gedämpft: Iss Protein zuerst, damit du es trotz kleiner Portionen erreichst.",
-"7.000–8.000 Schritte täglich sind ein realistisches Alltagsziel im Außendienst — jede Pause zwischen Terminen zählt.",
-"Ballaststoffe (Ziel: 30 g/Tag) aus Gemüse, Hülsenfrüchten und Vollkorn helfen der Verdauung — wichtig unter GLP-1-Medikamenten.",
-"Lass Vitamin D und B12 beim nächsten Arzttermin prüfen — ab Ende 40 häufig zu niedrig, unter MTX besonders relevant.",
-"Trinke regelmäßig, auch ohne Durst: Mounjaro dämpft das Durstgefühl. Stell dir eine Flasche sichtbar hin.",
-"Langsames Essen (20+ Min. pro Mahlzeit) verhindert Übelkeit unter Mounjaro und fördert bewusstes Essen.",
+"Iss Protein zuerst — so erreichst du dein Ziel auch bei kleinem Appetit.",
+"7.000–8.000 Schritte täglich sind ein realistisches Alltagsziel — jede Gelegenheit zählt.",
+"Ballaststoffe (Ziel: 30 g/Tag) aus Gemüse, Hülsenfrüchten und Vollkorn halten satt und die Verdauung in Schwung.",
+"Lass Vitamin D und B12 gelegentlich beim Arzt prüfen — ein Mangel ist häufig und bremst Energie und Stimmung.",
+"Trinke regelmäßig, auch ohne Durst — stell dir eine Flasche sichtbar hin.",
+"Langsames Essen (20+ Min. pro Mahlzeit) fördert Sättigung und bewusstes Genießen.",
 "Schlaf ist dein unterschätztes Abnehm-Werkzeug: Unter 6,5 Std. steigt das Hungerhormon Ghrelin messbar.",
 "Wiege dich zur gleichen Tageszeit (morgens, nüchtern) — Tagesschwankungen von ±1 kg sind normal, der Wochentrend zählt.",
-"Denk an deine Folsäure nach der MTX-Gabe, falls ärztlich verordnet — und sprich Änderungen immer mit deinem Rheumatologen ab.",
-"Muskelerhalt beim Abnehmen heißt: lieber langsam (0,5 kg/Woche) als schnell. Du bist auf einem guten Weg."
+"Plane Ausnahmen bewusst ein, statt sie zu bereuen: Ein geplantes Stück Kuchen ist kein Rückfall.",
+"Muskelerhalt beim Abnehmen heißt: lieber langsam (ca. 0,5 kg/Woche) als schnell. Dranbleiben zählt."
 ];
 /* ================= Helfer ================= */
 const $ = s => document.querySelector(s);
@@ -380,13 +391,12 @@ const WEEKDAYS=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag",
 const LS="vitalcoach_v1";
 function defaultState(){
   return {
-    profile:{name:"Rasched",birth:"1976-07-26",sex:"m",height:174,targetWeight:82,
-      activity:1.35,mtxDay:1,theme:"auto",startWeight:96.4,startDate:"2025-12-01",
-      kcalOverride:null,protOverride:null},
+    profile:{name:"",birth:null,sex:"m",height:null,targetWeight:null,
+      activity:1.35,mtxDay:null,theme:"auto",startWeight:null,startDate:null,
+      photo:null,kcalOverride:null,protOverride:null},
     days:{},
-    bodyLog:[{date:"2025-12-01",weight:96.4,bf:null,waist:null},
-             {date:todayKey(),weight:87.1,bf:25,waist:null}],
-    customFoods:[], favs:{}, recent:[]
+    bodyLog:[],
+    customFoods:[], favs:{}, recent:[], lastExport:null
   };
 }
 function load(){try{const raw=localStorage.getItem(LS);return raw?JSON.parse(raw):null;}catch(e){return null;}}
@@ -399,20 +409,21 @@ let motiShift=0;
 
 /* ================= Berechnungen ================= */
 function age(){
+  if(!state.profile.birth)return 40;
   const b=new Date(state.profile.birth),n=new Date();
   let a=n.getFullYear()-b.getFullYear();
   if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate()))a--;
   return a;
 }
 function sortedBody(){return state.bodyLog.filter(e=>e.weight!=null).slice().sort((a,b)=>a.date<b.date?-1:1);}
-function latestWeight(){const s=sortedBody();return s.length?s[s.length-1].weight:state.profile.startWeight;}
+function latestWeight(){const s=sortedBody();return s.length?s[s.length-1].weight:(state.profile.startWeight||80);}
 function bmi(){const h=state.profile.height/100;return latestWeight()/(h*h);}
 function targets(){
   const p=state.profile,w=latestWeight();
-  const bmr=(p.sex==="m"?5:-161)+10*w+6.25*p.height-5*age();
+  const bmr=(p.sex==="m"?5:-161)+10*w+6.25*(p.height||170)-5*age();
   const tdee=bmr*p.activity;
-  const kcal=p.kcalOverride||Math.max(Math.round((tdee-500)/10)*10,1500);
-  const prot=p.protOverride||Math.round(p.targetWeight*1.8);
+  const kcal=p.kcalOverride||Math.max(Math.round((tdee-500)/10)*10,p.sex==="m"?1500:1200);
+  const prot=p.protOverride||Math.round((p.targetWeight||w)*1.8);
   const fat=Math.round(w*0.8);
   const carbs=Math.max(0,Math.round((kcal-prot*4-fat*9)/4));
   return {kcal,prot,fat,carbs,water:2500,sleep:7,bmr:Math.round(bmr),tdee:Math.round(tdee)};
@@ -488,27 +499,27 @@ function coachTips(){
   const key=todayKey(), day=getDayRec(key), t=totals(day), tg=targets();
   const hour=new Date().getHours(), wd=new Date().getDay();
   const push=(cls,ic,txt,btn)=>tips.push({cls,ic,txt,btn});
-  // MTX
-  if(wd===Number(state.profile.mtxDay)){
-    if(!day.mtx)push("warn","💉","Heute ist dein MTX-Tag (20 mg). Denk an die Spritze — und ggf. an die Folsäure am Folgetag laut ärztlicher Vorgabe.",
+  // Medikamenten-Erinnerung (optional)
+  if(state.profile.mtxDay!=null&&wd===Number(state.profile.mtxDay)){
+    if(!day.mtx)push("warn","💊","Heute ist dein wöchentlicher Medikamenten-Tag. Nicht vergessen!",
       "<button class='btn small' onclick='markMtx()'>Erledigt ✓</button>");
-    else push("good","💉","MTX heute erledigt. Stark!");
+    else push("good","💊","Medikament heute erledigt. Stark!");
   }
-  // Alkohol + MTX
-  if(t.alc)push("danger","🍺","Du hast heute Alkohol getrackt. Unter wöchentlichem MTX ist Alkohol eine zusätzliche Leberbelastung — besser weglassen oder auf die alkoholfreie Variante wechseln.");
+  // Alkohol
+  if(t.alc)push("warn","🍺","Du hast heute Alkohol getrackt. Alkohol bremst die Fettverbrennung"+(state.profile.mtxDay!=null?" und verträgt sich mit vielen Medikamenten schlecht — im Zweifel ärztlich abklären":"")+".");
   // Protein
   const pPct=t.p/tg.prot*100;
   if(pPct>=100)push("good","💪",`Proteinziel erreicht (${t.p} g / ${tg.prot} g) — optimal für den Muskelerhalt beim Abnehmen.`);
-  else if(hour>=15&&pPct<50)push("warn","💪",`Erst ${t.p} g von ${tg.prot} g Protein. Unter Mounjaro besonders wichtig: Plane fürs Abendessen eine große Proteinquelle ein (Quark, Fisch, Hähnchen).`);
+  else if(hour>=15&&pPct<50)push("warn","💪",`Erst ${t.p} g von ${tg.prot} g Protein. Plane fürs Abendessen eine große Proteinquelle ein (Quark, Fisch, Hähnchen).`);
   else if(hour>=19&&pPct<85)push("warn","💪",`Dir fehlen noch ${Math.max(0,tg.prot-t.p)} g Protein. Ein Magerquark (250 g) liefert 30 g.`);
   // Kalorien
   const rest=tg.kcal-t.k;
   if(t.k>tg.kcal*1.1)push("danger","🔥",`${t.k-tg.kcal} kcal über deinem Tagesziel. Kein Drama — ein Tag macht keinen Trend. Morgen einfach normal weiter.`);
   else if(hour>=18&&rest>0&&rest<tg.kcal*0.35)push("good","🔥",`Noch ${rest} kcal übrig — passt gut für ein proteinreiches Abendessen.`);
-  else if(hour>=18&&t.k<tg.kcal*0.4)push("warn","🍽️",`Du hast heute erst ${t.k} kcal gegessen. Unter Mounjaro fehlt oft der Appetit — zu wenig essen kostet aber Muskeln. Iss lieber klein und proteinreich als gar nicht.`);
+  else if(hour>=18&&t.k<tg.kcal*0.4)push("warn","🍽️",`Du hast heute erst ${t.k} kcal gegessen. Zu wenig essen kostet Muskeln — iss lieber klein und proteinreich als gar nicht.`);
   // Wasser
   if(day.water>=tg.water)push("good","💧","Trinkziel erreicht!");
-  else if(hour>=14&&day.water<tg.water*0.5)push("warn","💧",`Erst ${(day.water/1000).toFixed(1)} l von ${(tg.water/1000).toFixed(1)} l getrunken. Mounjaro dämpft das Durstgefühl — jetzt ein großes Glas Wasser.`);
+  else if(hour>=14&&day.water<tg.water*0.5)push("warn","💧",`Erst ${(day.water/1000).toFixed(1)} l von ${(tg.water/1000).toFixed(1)} l getrunken. Jetzt wäre ein großes Glas Wasser genau richtig.`);
   // Wiegen
   const lastB=sortedBody().slice(-1)[0];
   if(lastB){
@@ -525,7 +536,7 @@ function coachTips(){
       push("good","📉",`Aktueller Trend: ${tr.toFixed(2).replace(".",",")} kg/Woche. Bleibt das so, erreichst du ${goal} kg ca. am ${d.toLocaleDateString("de-DE",{day:"numeric",month:"long",year:"numeric"})}.`);
       if(tr<-1)push("warn","🐢",`Über 1 kg/Woche Verlust ist auf Dauer zu schnell — Risiko Muskelabbau. Halte das Protein hoch und iss nicht unter ${Math.round(tg.bmr*0.9)} kcal.`);
     } else if(w>goal&&Math.abs(tr)<=0.05&&sortedBody().length>=4){
-      push("info","📊","Dein Gewicht stagniert seit ein paar Wochen. Optionen: Schritte erhöhen, Protein prüfen, Portionen ehrlich wiegen — oder mit deinem Arzt über die Mounjaro-Dosis sprechen.");
+      push("info","📊","Dein Gewicht stagniert seit ein paar Wochen. Optionen: Schritte erhöhen, Protein prüfen, Portionen ehrlich wiegen — Plateaus sind normal und gehen vorbei.");
     } else if(w<=goal){
       push("good","🏁",`Zielgewicht ${goal} kg erreicht! Zeit, mit dem Coach auf Erhaltungskalorien (~${tg.tdee} kcal) umzustellen.`);
     }
@@ -538,9 +549,9 @@ function coachTips(){
     if(avg<6.5)push("warn","😴",`Ø nur ${avg.toFixed(1).replace(".",",")} Std. Schlaf in den letzten Tagen. Unter 6,5 Std. steigt das Hungerhormon Ghrelin — Schlaf ist Teil deines Abnehmplans.`);
   }
   // Meilensteine
-  const lost=state.profile.startWeight-latestWeight();
-  const total=state.profile.startWeight-state.profile.targetWeight;
-  if(total>0&&lost>0.3){
+  const lost=(state.profile.startWeight||0)-latestWeight();
+  const total=(state.profile.startWeight||0)-(state.profile.targetWeight||0);
+  if(state.profile.startWeight&&state.profile.targetWeight&&total>0&&lost>0.3){
     const pct=Math.min(100,Math.round(lost/total*100));
     if(pct>=25)push("good","🏆",`${pct} % deines Wegs geschafft: ${lost.toFixed(1).replace(".",",")} von ${total.toFixed(1).replace(".",",")} kg sind weg. Das hast DU gemacht.`);
   }
@@ -548,6 +559,12 @@ function coachTips(){
   const st=streak();
   if([7,14,21,30,50,75,100].includes(st))push("good","🎉",`${st} Tage am Stück getrackt — das ist keine Phase mehr, das ist eine Gewohnheit. Stark!`);
   else if(st>=3)push("good","🔥",`${st} Tage in Folge getrackt — Dranbleiben schlägt Perfektion.`);
+  // Backup-Erinnerung
+  const tracked=Object.keys(state.days).length;
+  if(tracked>=10){
+    const le=state.lastExport?Math.round((new Date()-parseKey(state.lastExport))/86400000):999;
+    if(le>=30)push("info","💾","Sicherheits-Tipp: Deine Daten liegen nur in diesem Browser. Exportiere ab und zu ein Backup (Profil → Daten).");
+  }
   // Tages-Tipp (rotierend, altersgerecht)
   const doy=Math.floor((new Date()-new Date(new Date().getFullYear(),0,0))/86400000);
   push("info","🧠","Tipp des Tages: "+AGE_TIPS[doy%AGE_TIPS.length]);
@@ -588,11 +605,18 @@ function renderHeute(){
   </div>
   <div class="card">
     <div class="spread">
-      <div><div class="big">${t.k}<span class="muted" style="font-size:.95rem"> / ${tg.kcal} kcal</span></div>
-      <div class="muted">${over?`<span class="bad">${t.k-tg.kcal} kcal über Ziel</span>`:`${rest} kcal übrig`}</div></div>
-      <button class="btn" onclick="openModal('s')">+ Essen</button>
+      <svg viewBox="0 0 120 120" width="112" height="112" style="flex-shrink:0">
+        <circle cx="60" cy="60" r="52" class="ring-bg"/>
+        <circle cx="60" cy="60" r="52" class="ring-fg ${over?"over":""}" stroke-dasharray="326.7"
+          stroke-dashoffset="${(326.7*(1-Math.min(1,t.k/tg.kcal))).toFixed(1)}" transform="rotate(-90 60 60)"/>
+        <text x="60" y="58" class="ring-num">${t.k}</text>
+        <text x="60" y="76" class="ring-sub">von ${tg.kcal} kcal</text>
+      </svg>
+      <div style="flex:1;padding-left:10px">
+        <div style="font-size:1.02rem">${over?`<span class="bad"><b>${t.k-tg.kcal} kcal</b> über Ziel — morgen zählt neu.</span>`:`Noch <b>${rest} kcal</b> übrig`}</div>
+        <button class="btn" style="margin-top:10px" onclick="openModal('s')">+ Essen eintragen</button>
+      </div>
     </div>
-    <div class="bar"><div class="${over?"over":""}" style="width:${pct}%"></div></div>
     <div class="macro-grid">
       <div class="m">Protein<br><b>${t.p} / ${tg.prot} g</b><div class="bar"><div class="blue ${t.p>=tg.prot?"":""}" style="width:${Math.min(100,t.p/tg.prot*100)}%"></div></div></div>
       <div class="m">Fett<br><b>${t.f} / ${tg.fat} g</b><div class="bar"><div class="warn" style="width:${Math.min(100,t.f/tg.fat*100)}%"></div></div></div>
@@ -604,11 +628,15 @@ function renderHeute(){
     if(tips.length)html+=`<div class="card"><h3>🧠 Dein Coach <button class="btn small sec" onclick="showTab('coach')">Alle Tipps</button></h3>${tips.map(tipHtml).join("")}</div>`;
   }
   html+=`<div class="card"><h3>Mahlzeiten</h3>`;
+  const yDate=parseKey(viewKey);yDate.setDate(yDate.getDate()-1);
+  const yDay=state.days[dkey(yDate)];
   for(const [id,label] of MEALS){
     const es=day.meals[id];
     const mk=Math.round(es.reduce((a,e)=>a+e.k,0));
+    const yHas=yDay&&yDay.meals[id]&&yDay.meals[id].length;
     html+=`<div class="meal"><div class="meal-head"><b>${label}</b>
       <span class="row"><span class="muted">${mk?mk+" kcal":""}</span>
+      ${(!es.length&&yHas)?`<button class="btn small sec" onclick="copyMeal('${id}')" title="Gestrige Einträge übernehmen">↺ wie gestern</button>`:""}
       <button class="btn small sec" onclick="openModal('${id}')">+</button></span></div>`;
     for(let i=0;i<es.length;i++){
       const e=es[i];
@@ -635,6 +663,14 @@ function renderHeute(){
   $("#page-heute").innerHTML=html;
   $("#streakNum").textContent=streak();
   $("#streakBadge").classList.toggle("hidden",streak()<1);
+}
+function copyMeal(id){
+  const y=parseKey(viewKey);y.setDate(y.getDate()-1);
+  const yd=state.days[dkey(y)];
+  if(!yd||!yd.meals[id]||!yd.meals[id].length)return;
+  const cur=getDayRec(viewKey);
+  cur.meals[id]=cur.meals[id].concat(yd.meals[id].map(e=>Object.assign({},e)));
+  save();renderHeute();
 }
 function addWater(ml){const d=getDayRec(viewKey);d.water=Math.max(0,d.water+ml);save();renderHeute();}
 function setSleep(v){getDayRec(viewKey).sleep=v===""?null:Math.max(0,Math.min(14,parseFloat(v)));save();renderHeute();}
@@ -922,8 +958,8 @@ function addOffProduct(p){
 function renderKoerper(){
   const s=sortedBody(),last=s[s.length-1]||{};
   const p=state.profile,tg=targets();
-  const lost=(p.startWeight-latestWeight()).toFixed(1);
-  const toGo=(latestWeight()-p.targetWeight).toFixed(1);
+  const lost=p.startWeight?(p.startWeight-latestWeight()).toFixed(1):null;
+  const toGo=p.targetWeight?(latestWeight()-p.targetWeight).toFixed(1):null;
   const tr=weightTrend();
   const b=bmi();
   let prog="–";
@@ -944,8 +980,8 @@ function renderKoerper(){
   </div>
   <div class="card"><h3>📊 Deine Bilanz</h3>
     <div class="grid3">
-      <div class="stat"><b>${String(lost).replace(".",",")} kg</b><span>abgenommen seit Dez. 25</span></div>
-      <div class="stat"><b>${String(toGo).replace(".",",")} kg</b><span>bis Ziel ${p.targetWeight} kg</span></div>
+      <div class="stat"><b>${lost==null?"–":String(lost).replace(".",",")+" kg"}</b><span>abgenommen seit Start</span></div>
+      <div class="stat"><b>${toGo==null?"–":String(toGo).replace(".",",")+" kg"}</b><span>bis Ziel ${p.targetWeight||"–"} kg</span></div>
       <div class="stat"><b>${b.toFixed(1).replace(".",",")}</b><span>BMI</span></div>
       <div class="stat"><b>${tr==null?"–":tr.toFixed(2).replace(".",",")+" kg"}</b><span>Trend / Woche</span></div>
       <div class="stat"><b>${prog}</b><span>Prognose Ziel</span></div>
@@ -954,7 +990,7 @@ function renderKoerper(){
   </div>
   <div class="card"><h3>📉 Gewichtsverlauf</h3>
     <canvas id="wChart" height="220"></canvas>
-    <div class="muted" style="margin-top:6px">Gestrichelte Linie = Zielgewicht ${p.targetWeight} kg</div>
+    <div class="muted" style="margin-top:6px">Gestrichelte Linie = Zielgewicht ${p.targetWeight||"–"} kg</div>
   </div>`;
   drawWeightChart();
 }
@@ -981,7 +1017,7 @@ function drawWeightChart(){
   const col=t=>cs.getPropertyValue(t).trim();
   const pts=sortedBody();
   if(pts.length<2){ctx.fillStyle=col("--muted");ctx.font="13px sans-serif";ctx.fillText("Noch zu wenige Einträge",20,40);return;}
-  const goal=state.profile.targetWeight;
+  const goal=state.profile.targetWeight||pts[pts.length-1].weight;
   const xs=pts.map(e=>parseKey(e.date).getTime());
   const ys=pts.map(e=>e.weight);
   const x0=Math.min(...xs),x1=Math.max(...xs);
@@ -1092,12 +1128,13 @@ function renderProfil(){
         </select></div>
     </div>
   </div>
-  <div class="card"><h3>💉 Medikamente</h3>
-    <label class="fl">MTX-Spritzentag (wöchentliche Erinnerung)</label>
-    <select onchange="setP('mtxDay',parseInt(this.value))">
+  <div class="card"><h3>💊 Wöchentliche Erinnerung (optional)</h3>
+    <label class="fl">Erinnerungstag, z. B. für ein wöchentliches Medikament</label>
+    <select onchange="setP('mtxDay',this.value===''?null:parseInt(this.value))">
+      <option value="">Keine Erinnerung</option>
       ${WEEKDAYS.map((w,i)=>`<option value="${i}" ${p.mtxDay===i?"selected":""}>${w}</option>`).join("")}
     </select>
-    <div class="muted" style="margin-top:6px">Der Coach erinnert dich am gewählten Tag und warnt bei getracktem Alkohol.</div>
+    <div class="muted" style="margin-top:6px">Der Coach erinnert dich am gewählten Tag. Details zu Medikamenten speichert die App bewusst nicht.</div>
   </div>
   <div class="card"><h3>🎯 Ziele überschreiben (optional)</h3>
     <div class="grid2">
@@ -1127,7 +1164,7 @@ function renderProfil(){
     <div class="disclaimer">Diese Datei ist eine vollständige Web-App. Fürs Handy: Datei per AirDrop/Cloud aufs Handy übertragen und im Browser öffnen, oder (besser) kostenlos hosten (z. B. GitHub Pages) und dann im Browser „Zum Home-Bildschirm hinzufügen" wählen — sie verhält sich dann wie eine installierte App.</div>
   </div>
   <div class="card">
-    <div class="disclaimer">⚕️ Hinweis: Dieses Tool ersetzt keine ärztliche Beratung. Kalorien- und Nährwertangaben sind Richtwerte. Besprich Ernährungs- und Medikamentenfragen (MTX, Mounjaro) mit deinem Arzt — insbesondere bei Dosisänderungen, Nebenwirkungen oder schnellem Gewichtsverlust.</div>
+    <div class="disclaimer">⚕️ Hinweis: Diese App ersetzt keine ärztliche oder ernährungstherapeutische Beratung. Kalorien- und Nährwertangaben sind Richtwerte. Besprich Ernährungs- und Medikamentenfragen mit deinem Arzt — insbesondere bei Vorerkrankungen, Medikamenteneinnahme, Schwangerschaft oder schnellem Gewichtsverlust. Alle Daten bleiben ausschließlich lokal auf deinem Gerät.</div>
   </div>`;
 }
 function setPhoto(inp){
@@ -1150,7 +1187,95 @@ function setPhoto(inp){
   };
   r.readAsDataURL(file);
 }
+/* ================= Einrichtungs-Assistent ================= */
+let setupStep=1;
+function needsSetup(){
+  const p=state.profile;
+  return !(p.birth&&p.height&&p.targetWeight&&(sortedBody().length||p.startWeight));
+}
+function showSetup(){setupStep=1;$("#setup").classList.remove("hidden");renderSetup();}
+function renderSetup(){
+  const p=state.profile,b=$("#setupBody");
+  if(setupStep===1){
+    b.innerHTML=`
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:46px">💚</div>
+      <h2 style="margin:6px 0">Willkommen bei Vital-Coach</h2>
+      <div class="muted">Dein persönlicher Ernährungs- und Gesundheitscoach.<br>Alle Daten bleiben ausschließlich auf diesem Gerät.</div>
+    </div>
+    <div class="card">
+      <label class="fl">Wie heißt du? (optional)</label>
+      <input id="su-name" value="${esc(p.name||"")}" placeholder="Dein Name">
+      <label class="fl">Geburtsdatum *</label>
+      <input id="su-birth" type="date" value="${p.birth||""}">
+      <label class="fl">Geschlecht * <span class="muted">(für die Kalorienformel)</span></label>
+      <select id="su-sex">
+        <option value="m" ${p.sex!=="w"?"selected":""}>Männlich</option>
+        <option value="w" ${p.sex==="w"?"selected":""}>Weiblich</option>
+      </select>
+      <label class="fl">Größe in cm *</label>
+      <input id="su-height" type="number" min="120" max="230" inputmode="numeric" value="${p.height||""}" placeholder="z. B. 175">
+    </div>
+    <button class="btn" style="width:100%" onclick="setupNext()">Weiter →</button>`;
+  }else{
+    b.innerHTML=`
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:46px">🎯</div>
+      <h2 style="margin:6px 0">Deine Ziele</h2>
+      <div class="muted">Daraus berechnet dein Coach Kalorien- und Proteinziel.</div>
+    </div>
+    <div class="card">
+      <label class="fl">Aktuelles Gewicht in kg *</label>
+      <input id="su-w" type="number" step="0.1" min="35" max="300" inputmode="decimal" placeholder="z. B. 85">
+      <label class="fl">Zielgewicht in kg *</label>
+      <input id="su-tw" type="number" step="0.1" min="35" max="300" inputmode="decimal" placeholder="z. B. 78">
+      <label class="fl">Wie aktiv bist du im Alltag?</label>
+      <select id="su-act">
+        <option value="1.25">Sitzend (Büro, wenig Bewegung)</option>
+        <option value="1.35" selected>Überwiegend sitzend, etwas Bewegung</option>
+        <option value="1.5">Aktiv (viel auf den Beinen)</option>
+        <option value="1.7">Sehr aktiv (körperliche Arbeit / viel Sport)</option>
+      </select>
+      <label class="fl">Wöchentliche Medikamenten-Erinnerung (optional)</label>
+      <select id="su-med">
+        <option value="">Keine</option>
+        ${WEEKDAYS.map((w,i)=>`<option value="${i}">${w}</option>`).join("")}
+      </select>
+    </div>
+    <div class="disclaimer" style="margin-bottom:14px">⚕️ Vital-Coach ersetzt keine ärztliche Beratung. Nährwert- und Kalorienangaben sind Richtwerte.</div>
+    <div class="row">
+      <button class="btn sec" onclick="setupStep=1;renderSetup()">← Zurück</button>
+      <button class="btn" style="flex:1" onclick="finishSetup()">Los geht's 🚀</button>
+    </div>`;
+  }
+  window.scrollTo(0,0);
+}
+function setupNext(){
+  const birth=$("#su-birth").value,h=parseFloat($("#su-height").value);
+  if(!birth){alert("Bitte gib dein Geburtsdatum an.");return;}
+  if(!h||h<120||h>230){alert("Bitte gib eine Größe zwischen 120 und 230 cm an.");return;}
+  const p=state.profile;
+  p.name=$("#su-name").value.trim();
+  p.birth=birth;p.sex=$("#su-sex").value;p.height=h;
+  setupStep=2;renderSetup();
+}
+function finishSetup(){
+  const w=parseFloat($("#su-w").value),tw=parseFloat($("#su-tw").value);
+  if(!w||w<35||w>300){alert("Bitte gib dein aktuelles Gewicht an.");return;}
+  if(!tw||tw<35||tw>300){alert("Bitte gib dein Zielgewicht an.");return;}
+  const p=state.profile;
+  p.targetWeight=tw;
+  p.activity=parseFloat($("#su-act").value);
+  const med=$("#su-med").value;
+  p.mtxDay=med===""?null:parseInt(med);
+  p.startWeight=w;p.startDate=todayKey();
+  state.bodyLog=[{date:todayKey(),weight:w,bf:null,waist:null}];
+  save();
+  $("#setup").classList.add("hidden");
+  applyTheme();renderAll();
+}
 function exportData(){
+  state.lastExport=todayKey();save();
   const blob=new Blob([JSON.stringify(state,null,1)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
@@ -1163,14 +1288,16 @@ function importData(inp){
   r.onload=()=>{try{
     const d=JSON.parse(r.result);
     if(!d.profile||!d.days)throw 0;
-    state=d;save();applyTheme();renderAll();alert("Backup importiert.");
+    state=d;save();applyTheme();
+    if(needsSetup())showSetup();else{$("#setup").classList.add("hidden");renderAll();}
+    alert("Backup importiert.");
   }catch(e){alert("Datei konnte nicht gelesen werden.");}};
   r.readAsText(file);
 }
 function resetAll(){
   if(confirm("Wirklich ALLE Daten löschen? Ein Export vorher ist empfohlen."))
   if(confirm("Letzte Sicherheitsfrage: unwiderruflich löschen?")){
-    state=defaultState();save();applyTheme();renderAll();
+    state=defaultState();save();applyTheme();renderAll();showSetup();
   }
 }
 
@@ -1187,6 +1314,7 @@ function renderAll(){
 }
 applyTheme();
 renderAll();
+if(needsSetup())showSetup();
 window.addEventListener("resize",()=>{if(currentTab==="koerper")drawWeightChart();});
 
 </script>
